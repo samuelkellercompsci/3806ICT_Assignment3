@@ -1,0 +1,5 @@
+// include main path.csp which defines moveset and goals
+#include "path.csp";
+
+// prioritise unvisited positions when searching the goal area for packages
+#assert UnvisitedMove() reaches goalAreaChecked;

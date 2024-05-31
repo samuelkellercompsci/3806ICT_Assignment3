@@ -1,0 +1,92 @@
+/*
+This csp PAT file is responsible for generating a moveset which will achieve a goal
+based on the robot's current interpretation of its environment. It expects world.csp
+to be updated with the robot's current understanding of obstacles, packages, and
+visited squares.
+
+It defines two types of moves for every direction (up, left, right, down). These
+are visited/unvisited variants, respectively intending to prioritise visiting
+already visited locations or unvisited locations. When moving to a new location,
+the location is marked as visited. If that location was a package, they are
+"picked up" by incrementing a variable onBoard.
+
+The robot's position is maintained by xpos and ypos.
+
+It also defines three core goals. These are:
+home:
+This goal simply attempts to bring the robot back to its home position, as given
+by SUB_HOME_X and SUB_HOME_Y provided in world.csp.
+
+goalAreaChecked:
+This goal attempts to mark all locations as visited, and to return to the home position
+during the process.
+
+noPackages:
+This goal ensures that all locations are void of packages if there are remaining spaces
+on the bot (onBoard != maxCapacity). In the case that the bot has reached maximum carrying
+capacity, packages are left on the board. In both cases, there is the additional goal of
+returning the robot back home.
+*/
+
+// include the expected world.csp file which defines the current environment & parameters
+#include "world.csp";
+
+// primitive tasks for overall move task
+// actions if conditions satisfied:
+	// move the position of the robot
+	// mark the new position as visited
+	// pick up package if there was one (onBoard++)
+
+// in order to move up:
+// need to check if the current position is not at the boundary
+	// xpos != upper boundary, which is first row in world (0)
+// need to check if the next position is not an obstacle
+	// world[xpos-1][ypos] != Obstacle
+// need to check if robot is at max capacity ( && (onBoard != maxCapacity))
+	// if at max capacity, a package will not be picked up.
+process MoveUp = {
+	xpos > 0 &&
+	world[xpos-1][ypos] != Obstacle &&
+	(onBoard != maxCapacity || (world[xpos-1][ypos] != Package))
+}
+-> (xpos = xpos - 1);
+-> (if (world[xpos][ypos] == Package) onBoard = onBoard + 1);
+-> (world[xpos][ypos] = Visited);
+
+// define similar processes for MoveDown, MoveLeft, MoveRight
+process MoveDown = {
+	xpos < Rows-1 &&
+	world[xpos+1][ypos] != Obstacle &&
+	(onBoard != maxCapacity || (world[xpos+1][ypos] != Package))
+}
+-> (xpos = xpos + 1);
+-> (if (world[xpos][ypos] == Package) onBoard = onBoard + 1);
+-> (world[xpos][ypos] = Visited);
+
+process MoveLeft = {
+	ypos > 0 &&
+	world[xpos][ypos-1] != Obstacle &&
+	(onBoard != maxCapacity || (world[xpos][ypos-1] != Package))
+}
+-> (ypos = ypos - 1);
+-> (if (world[xpos][ypos] == Package) onBoard = onBoard + 1);
+-> (world[xpos][ypos] = Visited);
+
+process MoveRight = {
+	ypos < Cols-1 &&
+	world[xpos][ypos+1] != Obstacle &&
+	(onBoard != maxCapacity || (world[xpos][ypos+1] != Package))
+}
+-> (ypos = ypos + 1);
+-> (if (world[xpos][ypos] == Package) onBoard = onBoard + 1);
+-> (world[xpos][ypos] = Visited);
+
+// composite processes for move actions
+process VisitedMove = MoveUp || MoveDown || MoveLeft || MoveRight;
+
+// primitive goal, robot has returned to its home position
+#define home (xpos == SUB_HOME_X && ypos == SUB_HOME_Y);
+// primitive goal, entire survey area has been checked for packages
+#define goalAreaChecked (&& i:{0..Rows-1}@(&& j:{0..Cols-1}@(world[i][j] == Visited || world[i][j] == Obstacle)) && home);
+// primitive goal, entire survey area is clear of known packages, and has returned home if robot hit max capacity
+#define noPackages ((&& i:{0..Rows-1}@(&& j:{0..Cols-1}@(world[i][j] != Package)) && (onBoard != maxCapacity || home)) || (onBoard == maxCapacity && home));
